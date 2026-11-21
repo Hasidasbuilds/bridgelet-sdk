@@ -25,6 +25,7 @@ import { ConfigService } from '@nestjs/config';
 import { TransactionHashValidator } from '../../../common/validators/transaction-hash.validator.js';
 import { StellarAddressValidator } from '../../../common/validators/stellar-address.validator.js';
 import { WebhooksService } from '../../webhooks/webhooks.service.js';
+import { WebhookEvent } from '../../webhooks/webhook-events.js';
 import { ClaimAuditProvider } from './claim-audit.provider.js';
 import { ValidationProvider } from '../../sweeps/providers/validation.provider.js';
 import { AccountEventsProvider } from '../../account-events/providers/account-events.provider.js';
@@ -261,7 +262,7 @@ export class ClaimRedemptionProvider {
           failureReason: sweepResult.error ?? 'unknown',
         });
 
-        await this.webhooksService.triggerEvent('sweep.partial', {
+        await this.webhooksService.triggerEvent(WebhookEvent.SweepPartial, {
           accountId: account.id,
           amount: account.amount,
           asset: account.asset,
@@ -335,7 +336,7 @@ export class ClaimRedemptionProvider {
         outcome: 'success',
       });
 
-      await this.webhooksService.triggerEvent('sweep.completed', {
+      await this.webhooksService.triggerEvent(WebhookEvent.SweepCompleted, {
         accountId: account.id,
         amount: account.amount,
         asset: account.asset,
@@ -405,7 +406,7 @@ export class ClaimRedemptionProvider {
         failureReason: typedError.message,
       });
 
-      await this.webhooksService.triggerEvent('sweep.failed', {
+      await this.webhooksService.triggerEvent(WebhookEvent.SweepFailed, {
         accountId: account.id,
         amount: account.amount,
         asset: account.asset,
