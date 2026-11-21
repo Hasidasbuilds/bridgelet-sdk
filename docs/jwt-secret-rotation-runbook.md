@@ -3,7 +3,9 @@
 Operator-facing steps for rotating `JWT_SECRET` without invalidating the
 unredeemed claim tokens that depend on it. The supporting grace-window
 implementation lives in `src/common/guards/jwt-rotation.util.ts` and is
-applied by `TokenVerificationProvider.decodeClaimToken()` (see issue #683).
+applied by `TokenVerificationProvider.decodeClaimToken()` for claim tokens and
+by `JwtAuthGuard` for API tokens, so both token classes keep working throughout
+the window (issue #1061).
 
 This is a checklist for _performing_ a rotation, not for implementing it.
 

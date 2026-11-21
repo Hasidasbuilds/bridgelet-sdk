@@ -81,13 +81,13 @@ export function verifyClaimTokenWithRotation<T = unknown>(
  * Nest `JwtService` equivalent of {@link verifyClaimTokenWithRotation}, for
  * call sites that verify through the DI-registered service.
  */
-export async function verifyWithRotation(
+export async function verifyWithRotation<T = unknown>(
   jwtService: JwtService,
   token: string,
   previousSecret: string | undefined = previousJwtSecret(),
-): Promise<unknown> {
+): Promise<T> {
   try {
-    return await jwtService.verifyAsync(token);
+    return (await jwtService.verifyAsync(token)) as T;
   } catch (err) {
     if (!previousSecret) throw err;
     try {
