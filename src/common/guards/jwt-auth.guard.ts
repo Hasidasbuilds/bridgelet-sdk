@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { verifyWithRotation } from './jwt-rotation.util.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -20,7 +21,11 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<{ type?: string }>(
+      // #1061: API tokens, like claim tokens, must survive a JWT_SECRET
+      // rotation window. Without the fallback every caller holding a token
+      // minted under the old secret is logged out at deploy time.
+      const payload = await verifyWithRotation<{ type?: string }>(
+        this.jwtService,
         token,
       );
       // #956: claim tokens must never authenticate general API requests.
