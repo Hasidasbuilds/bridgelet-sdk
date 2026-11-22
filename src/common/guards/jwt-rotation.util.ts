@@ -91,7 +91,9 @@ export async function verifyWithRotation<T = unknown>(
   } catch (err) {
     if (!previousSecret) throw err;
     try {
-      return await jwtService.verifyAsync(token, { secret: previousSecret });
+      return (await jwtService.verifyAsync(token, {
+        secret: previousSecret,
+      })) as T;
     } catch {
       throw err;
     }
