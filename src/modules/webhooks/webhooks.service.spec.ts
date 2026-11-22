@@ -383,9 +383,11 @@ describe('WebhooksService', () => {
       const webhook = makeWebhook();
       mockQb.getMany.mockResolvedValue([webhook]);
 
-      jest
-        .spyOn(global, 'fetch')
-        .mockResolvedValue({ ok: false, status: 500 } as Response);
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => '',
+      } as Response);
 
       await expect(
         service.triggerEvent('sweep.completed', { accountId: 'acc-fail' }),
@@ -396,9 +398,11 @@ describe('WebhooksService', () => {
       const webhook = makeWebhook();
       mockQb.getMany.mockResolvedValue([webhook]);
 
-      jest
-        .spyOn(global, 'fetch')
-        .mockResolvedValue({ ok: false, status: 503 } as Response);
+      jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: async () => '',
+      } as Response);
 
       await service.triggerEvent('sweep.failed', { accountId: 'acc-log-test' });
 

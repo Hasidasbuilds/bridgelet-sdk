@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { Webhook } from './entities/webhook.entity.js';
+import { WebhookDelivery } from './entities/webhook-delivery.entity.js';
 import { CreateWebhookDto } from './dto/create-webhook.dto.js';
 import { UpdateWebhookDto } from './dto/update-webhook.dto.js';
 import { WebhookResponseDto } from './dto/webhook-response.dto.js';
@@ -174,7 +175,7 @@ export class WebhooksService {
       // or worse, one it cannot distinguish from forgery. Refuse to send.
       this.logger.error(
         `Skipping delivery: event=${eventType}, webhook=${webhook.id}, ` +
-          'url=${webhook.url} — the stored secret could not be decrypted. ' +
+          `url=${webhook.url} — the stored secret could not be decrypted. ` +
           'Rotate it with PUT /webhooks/:id to re-encrypt under the current key.',
       );
       return;
@@ -189,6 +190,8 @@ export class WebhooksService {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10_000);
+    let responseCode: number | null = null;
+    let responseBody: string | null = null;
 
     try {
       const response = await fetch(webhook.url, {
@@ -201,8 +204,10 @@ export class WebhooksService {
         body,
         signal: controller.signal,
       });
+      responseCode = response.status;
 
       if (!response.ok) {
+        responseBody = (await response.text()).slice(0, 2048);
         this.logger.error(
           `Webhook delivery failed: event=${eventType}, accountId=${accountId}, ` +
             `url=${webhook.url}, status=${response.status}`,
@@ -210,6 +215,7 @@ export class WebhooksService {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      responseBody = msg.slice(0, 2048);
       this.logger.error(
         `Webhook delivery error: event=${eventType}, accountId=${accountId}, ` +
           `url=${webhook.url}, error=${msg}`,
@@ -217,6 +223,16 @@ export class WebhooksService {
     } finally {
       clearTimeout(timeoutId);
     }
+
+    // #1067: persist the outcome so the WebhookDelivery fields documented in
+    // docs/webhook-events.md are queryable by integrators and support staff.
+    await this.recordDelivery(
+      webhook,
+      eventType,
+      body,
+      responseCode,
+      responseBody,
+    );
 
     try {
       await this.webhookRepository.update(webhook.id, {
@@ -226,6 +242,48 @@ export class WebhooksService {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(
         `Failed to update lastTriggeredAt for webhook ${webhook.id}: ${msg}`,
+      );
+    }
+  }
+
+  /**
+   #1067: record one delivery attempt per signed outbound POST.
+   *
+   * Resolved from the Webhook repository's manager so the service keeps its
+   * existing two-argument constructor (and every current caller) intact.
+   * A failure to write telemetry must never fail a delivery, hence the
+   * contained catch.
+   */
+  private async recordDelivery(
+    webhook: Webhook,
+    eventType: string,
+    body: string,
+    responseCode: number | null,
+    responseBody: string | null,
+  ): Promise<void> {
+    const manager = this.webhookRepository.manager;
+    if (!manager) return;
+
+    try {
+      const repository = manager.getRepository(WebhookDelivery);
+      await repository.save(
+        repository.create({
+          subscriptionId: webhook.id,
+          eventType,
+          payloadHash: crypto.createHash('sha256').update(body).digest('hex'),
+          attemptCount: 1,
+          lastResponseCode: responseCode,
+          lastResponseBody: responseBody,
+          deliveredAt:
+            responseCode !== null && responseCode >= 200 && responseCode < 300
+              ? new Date()
+              : null,
+        }),
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `Failed to record webhook delivery for ${webhook.id}: ${msg}`,
       );
     }
   }

@@ -221,6 +221,11 @@ Each delivery attempt is recorded in the `webhook_deliveries` table
 (`WebhookDelivery` entity, `src/modules/webhooks/entities/webhook-delivery.entity.ts`):
 
 - `eventType` — the event that triggered delivery
+- `payloadHash` — SHA-256 of the exact signed body, so a record can be matched
+  to the signature without storing the payload itself
 - `attemptCount` — number of delivery attempts made
 - `lastResponseCode` / `lastResponseBody` — the receiving endpoint's last response
 - `deliveredAt` — timestamp of the last successful delivery, if any
+
+A row is written for every signed outbound POST, including failures (HTTP
+error or transport error); `deliveredAt` stays null for those attempts.
