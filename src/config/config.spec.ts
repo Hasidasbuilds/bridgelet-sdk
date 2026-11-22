@@ -96,9 +96,21 @@ describe('stellar.config', () => {
 
   it('uses STELLAR_NETWORK when set', async () => {
     process.env.STELLAR_NETWORK = 'mainnet';
+    process.env.STELLAR_HORIZON_URL = 'https://horizon.stellar.org';
+    process.env.STELLAR_SOROBAN_RPC_URL = 'https://soroban.stellar.org';
     const mod = await import('./stellar.config.js');
     const config = (mod.default as unknown as ConfigFactory)();
     expect(config.network).toBe('mainnet');
+    expect(config.horizonUrl).toBe('https://horizon.stellar.org');
+    expect(config.sorobanRpcUrl).toBe('https://soroban.stellar.org');
+  });
+
+  it('rejects mainnet with default testnet endpoints', async () => {
+    process.env.STELLAR_NETWORK = 'mainnet';
+    const mod = await import('./stellar.config.js');
+    expect(() => (mod.default as unknown as ConfigFactory)()).toThrow(
+      'STELLAR_NETWORK=mainnet requires mainnet STELLAR_HORIZON_URL',
+    );
   });
 
   it('rejects an invalid STELLAR_NETWORK value', async () => {
@@ -147,6 +159,8 @@ describe('stellar.config', () => {
 
   it('uses SUPPORTED_ASSETS_MAINNET when the network is mainnet', async () => {
     process.env.STELLAR_NETWORK = 'mainnet';
+    process.env.STELLAR_HORIZON_URL = 'https://horizon.stellar.org';
+    process.env.STELLAR_SOROBAN_RPC_URL = 'https://soroban.stellar.org';
     process.env.SUPPORTED_ASSETS_TESTNET = 'USDC:TESTNET';
     process.env.SUPPORTED_ASSETS_MAINNET = 'USDC:MAINNET';
     const mod = await import('./stellar.config.js');
@@ -156,6 +170,8 @@ describe('stellar.config', () => {
 
   it('falls back to SUPPORTED_ASSETS when no network-specific value is set', async () => {
     process.env.STELLAR_NETWORK = 'mainnet';
+    process.env.STELLAR_HORIZON_URL = 'https://horizon.stellar.org';
+    process.env.STELLAR_SOROBAN_RPC_URL = 'https://soroban.stellar.org';
     process.env.SUPPORTED_ASSETS = 'USDC:GLOBAL';
     const mod = await import('./stellar.config.js');
     const config = (mod.default as unknown as ConfigFactory)();

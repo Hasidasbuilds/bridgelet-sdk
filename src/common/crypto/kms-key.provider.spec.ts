@@ -231,9 +231,10 @@ describe('KmsKeyProvider', () => {
       kmsSendMock().mockRejectedValue(new Error('access denied'));
 
       const provider = new KmsKeyProvider(kmsEnabledConfig());
-      await provider.onModuleInit();
+      await expect(provider.onModuleInit()).rejects.toThrow(
+        /Failed to unwrap the persisted KMS data key: access denied\.[\s\S]*KMS_ENCRYPTED_DATA_KEY/,
+      );
 
-      // Fell back to the static key rather than minting a new data key.
       expect(provider.getEncryptionKey()).toBe(FALLBACK_KEY);
       const calls = kmsSendMock().mock.calls;
       expect(calls.some(([c]) => 'KeySpec' in c)).toBe(false);

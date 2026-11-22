@@ -134,16 +134,19 @@ export class KmsKeyProvider implements OnModuleInit {
         // A blob we cannot unwrap (wrong CMK, rotated-away key, corrupted
         // file) must not silently fall through to generating a new data key:
         // that would make every existing row undecryptable and look like
-        // success. Fail loudly and leave the fallback key in place.
-        this.logger.error(
+        // success. Continue to fail loudly, but abort startup rather than
+        // running on the ENCRYPTION_KEY fallback: a healthy-looking process
+        // writing new rows under the wrong key is worse than an explicit boot
+        // failure an operator has to fix (issue #1058).
+        const detail =
           `Failed to unwrap the persisted KMS data key: ${(err as Error).message}. ` +
-            'Refusing to generate a new data key, because doing so would make ' +
-            'every secret encrypted under the previous one permanently ' +
-            'undecryptable. Set KMS_ENCRYPTED_DATA_KEY to a blob wrapped by ' +
-            'KMS_KEY_ID, or clear it to intentionally start fresh (draining all ' +
-            'existing accounts first).',
-        );
-        return;
+          'Refusing to generate a new data key, because doing so would make ' +
+          'every secret encrypted under the previous one permanently ' +
+          'undecryptable. Set KMS_ENCRYPTED_DATA_KEY to a blob wrapped by ' +
+          'KMS_KEY_ID, or clear it to intentionally start fresh (draining all ' +
+          'existing accounts first).';
+        this.logger.error(detail);
+        throw new Error(detail, { cause: err });
       }
     }
 
